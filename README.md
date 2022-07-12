@@ -27,8 +27,10 @@ micro run .
 git init
 git add .
 git commit -m "初始化"
-git remote add origin ssh://git@项目地址
+git remote add origin git@项目地址
 git branch --set-upstream-to=origin/master/ master
+git pull --allow-unrelated-histories 
+git push -u origin master
 ```
 
 

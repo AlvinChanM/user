@@ -2,52 +2,60 @@ package handler
 
 import (
 	"context"
-
-	log "github.com/micro/micro/v3/service/logger"
-
-	user "user/proto"
+	"user/domain/model"
+	"user/domain/service"
+	user "user/proto/user"
 )
 
-type User struct{}
-
-// Return a new handler
-func New() *User {
-	return &User{}
+type User struct{
+	UserDataService service.IUserDataService
 }
 
-// Call is a single request handler called via client.Call or the generated client code
-func (e *User) Call(ctx context.Context, req *user.Request, rsp *user.Response) error {
-	log.Info("Received User.Call request")
-	rsp.Msg = "Hello " + req.Name
-	return nil
-}
 
-// Stream is a server side stream handler called via client.Stream or the generated client code
-func (e *User) Stream(ctx context.Context, req *user.StreamingRequest, stream user.User_StreamStream) error {
-	log.Infof("Received User.Stream request with count: %d", req.Count)
-
-	for i := 0; i < int(req.Count); i++ {
-		log.Infof("Responding: %d", i)
-		if err := stream.Send(&user.StreamingResponse{
-			Count: int64(i),
-		}); err != nil {
-			return err
-		}
+//注册
+func (u *User) Register(ctx context.Context, req *user.RegisterRequest,
+	res *user.RegisterResponse) error{
+	user2 := &model.User{
+		UserName:     req.UserName,
+		FirstName:    req.FirstName,
+		HashPassword: req.Pwd,
 	}
 
+	_, err := u.UserDataService.AddUser(user2)
+	if err != nil {
+		return err
+	}
+	res.Message = "注册成功！"
 	return nil
 }
 
-// PingPong is a bidirectional stream handler called via client.Stream or the generated client code
-func (e *User) PingPong(ctx context.Context, stream user.User_PingPongStream) error {
-	for {
-		req, err := stream.Recv()
-		if err != nil {
-			return err
-		}
-		log.Infof("Got ping %v", req.Stroke)
-		if err := stream.Send(&user.Pong{Stroke: req.Stroke}); err != nil {
-			return err
-		}
+
+func (u *User) Login(ctx context.Context, req user.LoginRequest, res user.LoginResponse) error {
+	isOk, err := u.UserDataService.CheckPwd(req.UserName, req.Pwd)
+	if err != nil{
+		return err
+	}
+	res.IsSuccess = isOk
+	return nil
+}
+
+// 查询用户信息
+func (u *User) GetUserInfo(ctx context.Context, req user.UserInfoRequest,
+	res *user.UserInfoResponse) error{
+	userInfo, err := u.UserDataService.FindUserByName(req.UserName)
+	if err != nil{
+		return err
+	}
+	res = UserForResponse(userInfo)
+	return nil
+}
+
+
+//类型转换
+func UserForResponse(userModel *model.User) *user.UserInfoResponse{
+	return &user.UserInfoResponse{
+		UserId:               userModel.ID,
+		UserName:             userModel.UserName,
+		FirstName:            userModel.FirstName,
 	}
 }
